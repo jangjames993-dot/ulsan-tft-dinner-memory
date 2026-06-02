@@ -3,6 +3,9 @@ const FORTUNE_STORAGE_KEY = "companyDinnerFortunes";
 const NOTICE_STORAGE_KEY = "companyDinnerNotices";
 const ADMIN_SESSION_KEY = "companyDinnerAdminMode";
 const ADMIN_PASSWORD = "1234";
+const SUPABASE_URL = "https://lnydbnauppqmdgabwzcs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_J-9djMrZ7ahSXV6kChryvQ_GNQXzBi4";
+const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_KEY);
 const fallbackImage =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='675' viewBox='0 0 900 675'%3E%3Crect width='900' height='675' fill='%23e7efec'/%3E%3Ccircle cx='450' cy='360' r='250' fill='%23f2b84b'/%3E%3Ccircle cx='450' cy='342' r='188' fill='%23fff8dd'/%3E%3Cg fill='%230f766e'%3E%3Ccircle cx='334' cy='284' r='42'/%3E%3Ccircle cx='454' cy='250' r='50'/%3E%3Ccircle cx='574' cy='294' r='44'/%3E%3C/g%3E%3Cg fill='%23ce6a6b'%3E%3Crect x='282' y='398' width='124' height='56' rx='28'/%3E%3Crect x='484' y='408' width='132' height='58' rx='29'/%3E%3C/g%3E%3Cpath d='M260 510c92-55 190-63 294-24 49 19 96 25 141 18' fill='none' stroke='%23202124' stroke-width='14' stroke-linecap='round'/%3E%3Ctext x='450' y='610' text-anchor='middle' font-family='Segoe UI, sans-serif' font-size='44' font-weight='800' fill='%23202124'%3E%ED%9A%8C%EC%8B%9D %EA%B8%B0%EB%A1%9D%3C/text%3E%3C/svg%3E";
 const fortunes = [
@@ -110,6 +113,7 @@ renderPosts();
 renderNotices();
 renderFortunes();
 renderPrizes();
+loadSharedData();
 
 if (adminToggle) {
   adminToggle.addEventListener("click", () => {
@@ -161,22 +165,24 @@ if (photoInput && preview) {
 }
 
 if (form) {
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!isAdminMode()) return;
 
     if (editingPostId) {
-      posts = posts.map((post) =>
-        post.id === editingPostId
-          ? {
-              ...post,
-              title: titleInput.value.trim(),
-              description: descriptionInput.value.trim(),
-              image: selectedPhoto || post.image,
-              updatedAt: new Date().toISOString(),
-            }
-          : post
-      );
+      const currentPost = posts.find((post) => post.id === editingPostId);
+      const updates = {
+        title: titleInput.value.trim(),
+        description: descriptionInput.value.trim(),
+        image: selectedPhoto || currentPost?.image || fallbackImage,
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (USE_SUPABASE) {
+        await updateRemotePost(editingPostId, updates);
+      } else {
+        posts = posts.map((post) => (post.id === editingPostId ? { ...post, ...updates } : post));
+      }
     } else {
       const post = {
         id: crypto.randomUUID(),
@@ -186,11 +192,14 @@ if (form) {
         createdAt: new Date().toISOString(),
       };
 
-      posts = [post, ...posts];
+      if (USE_SUPABASE) {
+        await createRemotePost(post);
+      } else {
+        posts = [post, ...posts];
+      }
     }
 
-    savePosts();
-    renderPosts();
+    await refreshPosts();
 
     form.reset();
     editingPostId = "";
@@ -203,21 +212,22 @@ if (form) {
 }
 
 if (noticeForm) {
-  noticeForm.addEventListener("submit", (event) => {
+  noticeForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!isAdminMode()) return;
 
     if (editingNoticeId) {
-      notices = notices.map((notice) =>
-        notice.id === editingNoticeId
-          ? {
-              ...notice,
-              title: noticeTitleInput.value.trim(),
-              content: noticeContentInput.value.trim(),
-              updatedAt: new Date().toISOString(),
-            }
-          : notice
-      );
+      const updates = {
+        title: noticeTitleInput.value.trim(),
+        content: noticeContentInput.value.trim(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (USE_SUPABASE) {
+        await updateRemoteNotice(editingNoticeId, updates);
+      } else {
+        notices = notices.map((notice) => (notice.id === editingNoticeId ? { ...notice, ...updates } : notice));
+      }
     } else {
       const notice = {
         id: crypto.randomUUID(),
@@ -226,11 +236,14 @@ if (noticeForm) {
         createdAt: new Date().toISOString(),
       };
 
-      notices = [notice, ...notices];
+      if (USE_SUPABASE) {
+        await createRemoteNotice(notice);
+      } else {
+        notices = [notice, ...notices];
+      }
     }
 
-    saveNotices();
-    renderNotices();
+    await refreshNotices();
     noticeForm.reset();
     editingNoticeId = "";
     setSubmitLabel(noticeForm, "공지 등록");
@@ -238,7 +251,7 @@ if (noticeForm) {
 }
 
 if (fortuneForm) {
-  fortuneForm.addEventListener("submit", (event) => {
+  fortuneForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const name = nameInput.value.trim();
@@ -262,21 +275,29 @@ if (fortuneForm) {
       createdAt: new Date().toISOString(),
     };
 
-    fortuneRecords = [record, ...fortuneRecords];
-    saveFortunes();
-    renderFortunes();
-    renderPrizes();
+    if (USE_SUPABASE) {
+      await createRemoteFortune(record);
+    } else {
+      fortuneRecords = [record, ...fortuneRecords];
+    }
+    await refreshFortunes();
     renderCurrentFortune(record);
     fortuneForm.reset();
   });
 }
 
 if (resetButton) {
-  resetButton.addEventListener("click", () => {
+  resetButton.addEventListener("click", async () => {
     if (!isAdminMode()) return;
     if (!posts.length && !notices.length && !fortuneRecords.length) return;
     const shouldReset = confirm("등록한 공지, 게시글, 운세 및 경품 기록을 모두 초기화할까요?");
     if (!shouldReset) return;
+
+    if (USE_SUPABASE) {
+      await deleteAllRemote("posts");
+      await deleteAllRemote("notices");
+      await deleteAllRemote("fortune_records");
+    }
     posts = [];
     notices = [];
     fortuneRecords = [];
@@ -361,14 +382,18 @@ function editPost(id) {
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function deletePost(id) {
+async function deletePost(id) {
   if (!isAdminMode()) return;
   const post = posts.find((item) => item.id === id);
   if (!post) return;
   const shouldDelete = confirm(`"${post.title}" 게시글을 제거할까요?`);
   if (!shouldDelete) return;
 
-  posts = posts.filter((item) => item.id !== id);
+  if (USE_SUPABASE) {
+    await deleteRemotePost(id);
+  } else {
+    posts = posts.filter((item) => item.id !== id);
+  }
   if (editingPostId === id) {
     editingPostId = "";
     selectedPhoto = "";
@@ -378,8 +403,7 @@ function deletePost(id) {
       preview.innerHTML = "<span>사진을 선택하면 미리보기가 표시됩니다.</span>";
     }
   }
-  savePosts();
-  renderPosts();
+  await refreshPosts();
 }
 
 function loadPosts() {
@@ -392,6 +416,217 @@ function loadPosts() {
 
 function savePosts() {
   localStorage.setItem(POST_STORAGE_KEY, JSON.stringify(posts));
+}
+
+async function loadSharedData() {
+  if (!USE_SUPABASE) return;
+  await Promise.all([refreshPosts(), refreshNotices(), refreshFortunes()]);
+}
+
+async function refreshPosts() {
+  if (USE_SUPABASE) {
+    try {
+      posts = await fetchRemotePosts();
+    } catch (error) {
+      console.error("Supabase posts load failed", error);
+    }
+  }
+  savePosts();
+  renderPosts();
+}
+
+async function refreshNotices() {
+  if (USE_SUPABASE) {
+    try {
+      notices = await fetchRemoteNotices();
+    } catch (error) {
+      console.error("Supabase notices load failed", error);
+    }
+  }
+  saveNotices();
+  renderNotices();
+}
+
+async function refreshFortunes() {
+  if (USE_SUPABASE) {
+    try {
+      fortuneRecords = await fetchRemoteFortunes();
+    } catch (error) {
+      console.error("Supabase fortunes load failed", error);
+    }
+  }
+  saveFortunes();
+  renderFortunes();
+  renderPrizes();
+}
+
+async function supabaseRequest(path, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`${response.status} ${detail}`);
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+async function fetchRemotePosts() {
+  const rows = await supabaseRequest("posts?select=*&order=created_at.desc");
+  return rows.map(fromRemotePost);
+}
+
+async function createRemotePost(post) {
+  await supabaseRequest("posts", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(toRemotePost(post)),
+  });
+}
+
+async function updateRemotePost(id, post) {
+  await supabaseRequest(`posts?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(toRemotePost(post)),
+  });
+}
+
+async function deleteRemotePost(id) {
+  await supabaseRequest(`posts?id=eq.${id}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+}
+
+async function fetchRemoteNotices() {
+  const rows = await supabaseRequest("notices?select=*&order=created_at.desc");
+  return rows.map(fromRemoteNotice);
+}
+
+async function createRemoteNotice(notice) {
+  await supabaseRequest("notices", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(toRemoteNotice(notice)),
+  });
+}
+
+async function updateRemoteNotice(id, notice) {
+  await supabaseRequest(`notices?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(toRemoteNotice(notice)),
+  });
+}
+
+async function deleteRemoteNotice(id) {
+  await supabaseRequest(`notices?id=eq.${id}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+}
+
+async function fetchRemoteFortunes() {
+  const rows = await supabaseRequest("fortune_records?select=*&order=created_at.desc");
+  return rows.map(fromRemoteFortune);
+}
+
+async function createRemoteFortune(record) {
+  await supabaseRequest("fortune_records", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(toRemoteFortune(record)),
+  });
+}
+
+async function deleteRemoteFortune(id) {
+  await supabaseRequest(`fortune_records?id=eq.${id}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+}
+
+async function deleteAllRemote(tableName) {
+  await supabaseRequest(`${tableName}?id=not.is.null`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+}
+
+function toRemotePost(post) {
+  return {
+    id: post.id,
+    title: post.title,
+    description: post.description,
+    image: post.image,
+    created_at: post.createdAt,
+    updated_at: post.updatedAt,
+  };
+}
+
+function fromRemotePost(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    image: row.image || fallbackImage,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toRemoteNotice(notice) {
+  return {
+    id: notice.id,
+    title: notice.title,
+    content: notice.content,
+    created_at: notice.createdAt,
+    updated_at: notice.updatedAt,
+  };
+}
+
+function fromRemoteNotice(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toRemoteFortune(record) {
+  return {
+    id: record.id,
+    name: record.name,
+    birth_mask: record.birthMask,
+    category: record.category,
+    message: record.message,
+    prize: record.prize,
+    created_at: record.createdAt,
+  };
+}
+
+function fromRemoteFortune(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    birthMask: row.birth_mask,
+    category: row.category,
+    message: row.message,
+    prize: row.prize,
+    createdAt: row.created_at,
+  };
 }
 
 function loadNotices() {
@@ -454,21 +689,24 @@ function editNotice(id) {
   noticeForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function deleteNotice(id) {
+async function deleteNotice(id) {
   if (!isAdminMode()) return;
   const notice = notices.find((item) => item.id === id);
   if (!notice) return;
   const shouldDelete = confirm(`"${notice.title}" 공지를 제거할까요?`);
   if (!shouldDelete) return;
 
-  notices = notices.filter((item) => item.id !== id);
+  if (USE_SUPABASE) {
+    await deleteRemoteNotice(id);
+  } else {
+    notices = notices.filter((item) => item.id !== id);
+  }
   if (editingNoticeId === id) {
     editingNoticeId = "";
     noticeForm?.reset();
     setSubmitLabel(noticeForm, "공지 등록");
   }
-  saveNotices();
-  renderNotices();
+  await refreshNotices();
 }
 
 function loadFortunes() {
@@ -580,17 +818,19 @@ function renderPrizes() {
   });
 }
 
-function deleteFortuneRecord(id) {
+async function deleteFortuneRecord(id) {
   if (!isAdminMode()) return;
   const record = fortuneRecords.find((item) => item.id === id);
   if (!record) return;
   const shouldDelete = confirm(`"${record.name}"님의 운세/경품 기록을 제거할까요?`);
   if (!shouldDelete) return;
 
-  fortuneRecords = fortuneRecords.filter((item) => item.id !== id);
-  saveFortunes();
-  renderFortunes();
-  renderPrizes();
+  if (USE_SUPABASE) {
+    await deleteRemoteFortune(id);
+  } else {
+    fortuneRecords = fortuneRecords.filter((item) => item.id !== id);
+  }
+  await refreshFortunes();
   if (fortuneResult) {
     fortuneResult.innerHTML = prizeHistory
       ? `
