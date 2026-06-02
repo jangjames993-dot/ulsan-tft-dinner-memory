@@ -60,20 +60,13 @@ const fortunes = [
   { category: "업무능력", message: "오늘은 자신 있게 말해도 좋은 타이밍이 찾아옵니다." },
   { category: "업무능력", message: "평소의 책임감이 즐거운 자리에서도 든든하게 느껴집니다." },
 ];
-const prizes = [
-  "커피 쿠폰",
-  "디저트 교환권",
-  "편의점 상품권",
-  "점심 메뉴 선택권",
-  "퇴근길 간식 세트",
-  "영화 예매권",
-  "미니 마사지기",
-  "보조배터리",
-  "책상 정리템",
-  "아침 커피 패스",
-  "랜덤 럭키박스",
-  "회식 MVP 인증서",
+const PRIZE_SOLD_OUT = "경품 소진";
+const PRIZE_INVENTORY = [
+  { name: "커피쿠폰 3,000원", quantity: 7 },
+  { name: "커피쿠폰 5,000원", quantity: 3 },
+  { name: "커피쿠폰 10,000원", quantity: 2 },
 ];
+const PRIZE_NAMES = PRIZE_INVENTORY.map((item) => item.name);
 
 const form = document.querySelector("#postForm");
 const fortuneForm = document.querySelector("#fortuneForm");
@@ -263,8 +256,9 @@ if (fortuneForm) {
     }
     birthInput.setCustomValidity("");
 
+    const isPrizePage = Boolean(prizeHistory);
     const fortune = pickRandom(fortunes);
-    const prize = pickRandom(prizes);
+    const prize = isPrizePage ? getNextPrize() : "";
     const record = {
       id: crypto.randomUUID(),
       name,
@@ -311,11 +305,17 @@ if (resetButton) {
     renderFortunes();
     renderPrizes();
     if (fortuneResult) {
-      fortuneResult.innerHTML = `
-        <p class="eyebrow">결과</p>
-        <h3>아직 뽑은 운세가 없습니다.</h3>
-        <p>부서원의 이름과 앞 6자리를 입력하면 재물, 회사생활, 건강, 가족, 업무능력 중 하나의 긍정 운세와 경품 추천이 나옵니다.</p>
-      `;
+      fortuneResult.innerHTML = prizeHistory
+        ? `
+          <p class="eyebrow">결과</p>
+          <h3>경품 추천을 기다리는 중입니다.</h3>
+          <p>남은 쿠폰 중 하나가 표시되고 아래 히스토리에 저장됩니다. 모두 소진되면 소진 안내가 나옵니다.</p>
+        `
+        : `
+          <p class="eyebrow">결과</p>
+          <h3>아직 뽑은 운세가 없습니다.</h3>
+          <p>재물, 회사생활, 건강, 가족, 업무능력 중 하나의 긍정 운세가 나옵니다.</p>
+        `;
     }
   });
 }
@@ -725,11 +725,18 @@ function renderCurrentFortune(record) {
   if (!fortuneResult) return;
 
   if (prizeHistory) {
-    fortuneResult.innerHTML = `
-      <p class="eyebrow">추천 경품</p>
-      <h3>${escapeHtml(record.name)}님 경품은 ${escapeHtml(record.prize)}입니다.</h3>
-      <div class="result-prize">경품 결과 <span>${escapeHtml(record.prize)}</span></div>
-    `;
+    const isSoldOut = record.prize === PRIZE_SOLD_OUT;
+    fortuneResult.innerHTML = isSoldOut
+      ? `
+        <p class="eyebrow">경품 소진</p>
+        <h3>${escapeHtml(record.name)}님, 준비된 경품이 모두 소진되었습니다.</h3>
+        <div class="result-prize">경품 결과 <span>${PRIZE_SOLD_OUT}</span></div>
+      `
+      : `
+        <p class="eyebrow">추천 경품</p>
+        <h3>${escapeHtml(record.name)}님 경품은 ${escapeHtml(record.prize)}입니다.</h3>
+        <div class="result-prize">경품 결과 <span>${escapeHtml(record.prize)}</span></div>
+      `;
     return;
   }
 
@@ -737,20 +744,19 @@ function renderCurrentFortune(record) {
     <p class="eyebrow">${record.category} 운세</p>
     <h3>${escapeHtml(record.name)}님, 오늘의 운세가 아주 좋습니다.</h3>
     <p>${escapeHtml(record.message)}</p>
-    <div class="result-prize">추천 경품 <span>${escapeHtml(record.prize)}</span></div>
   `;
 }
 
 function renderFortunes() {
-  if (fortuneCount) {
-    fortuneCount.textContent = fortuneRecords.length;
-  }
-
   if (!fortuneHistory || !fortuneTemplate) return;
 
+  const records = fortuneRecords.filter(isFortuneOnlyRecord);
+  if (fortuneCount) {
+    fortuneCount.textContent = records.length;
+  }
   fortuneHistory.innerHTML = "";
 
-  if (!fortuneRecords.length) {
+  if (!records.length) {
     fortuneHistory.innerHTML = `
       <article class="fortune-card">
         <div class="fortune-card-top"><span class="fortune-category">예시</span><time>오늘</time></div>
@@ -762,7 +768,7 @@ function renderFortunes() {
     return;
   }
 
-  fortuneRecords.forEach((record) => {
+  records.forEach((record) => {
     const card = fortuneTemplate.content.cloneNode(true);
     const time = card.querySelector("time");
 
@@ -785,21 +791,25 @@ function renderFortunes() {
 function renderPrizes() {
   if (!prizeHistory || !prizeTemplate) return;
 
+  const records = fortuneRecords.filter(isPrizeRecord);
+  if (fortuneCount) {
+    fortuneCount.textContent = records.length;
+  }
   prizeHistory.innerHTML = "";
 
-  if (!fortuneRecords.length) {
+  if (!records.length) {
     prizeHistory.innerHTML = `
       <article class="fortune-card prize-card">
         <div class="fortune-card-top"><span>예시</span><time>오늘</time></div>
         <h3>경품 추천을 받아보세요</h3>
-        <div class="prize-box"><span>추천 경품</span><strong>랜덤 럭키박스</strong></div>
+        <div class="prize-box"><span>추천 경품</span><strong>커피쿠폰</strong></div>
         <p class="birth-mask">기록 예시: 9001**</p>
       </article>
     `;
     return;
   }
 
-  fortuneRecords.forEach((record) => {
+  records.forEach((record) => {
     const card = prizeTemplate.content.cloneNode(true);
     const time = card.querySelector("time");
 
@@ -836,14 +846,43 @@ async function deleteFortuneRecord(id) {
       ? `
         <p class="eyebrow">결과</p>
         <h3>경품 추천을 기다리는 중입니다.</h3>
-        <p>추천 경품이 표시되고 아래 히스토리에 저장됩니다.</p>
+        <p>남은 쿠폰 중 하나가 표시되고 아래 히스토리에 저장됩니다. 모두 소진되면 소진 안내가 나옵니다.</p>
       `
       : `
         <p class="eyebrow">결과</p>
         <h3>아직 뽑은 운세가 없습니다.</h3>
-        <p>재물, 회사생활, 건강, 가족, 업무능력 중 하나의 긍정 운세와 경품 추천이 나옵니다.</p>
+        <p>재물, 회사생활, 건강, 가족, 업무능력 중 하나의 긍정 운세가 나옵니다.</p>
       `;
   }
+}
+
+function getNextPrize() {
+  const usedCounts = countUsedPrizes();
+  const remaining = PRIZE_INVENTORY.flatMap((item) => {
+    const used = usedCounts[item.name] || 0;
+    const count = Math.max(item.quantity - used, 0);
+    return Array.from({ length: count }, () => item.name);
+  });
+
+  if (!remaining.length) return PRIZE_SOLD_OUT;
+  return pickRandom(remaining);
+}
+
+function countUsedPrizes() {
+  return fortuneRecords.reduce((counts, record) => {
+    if (PRIZE_NAMES.includes(record.prize)) {
+      counts[record.prize] = (counts[record.prize] || 0) + 1;
+    }
+    return counts;
+  }, {});
+}
+
+function isPrizeRecord(record) {
+  return PRIZE_NAMES.includes(record.prize) || record.prize === PRIZE_SOLD_OUT;
+}
+
+function isFortuneOnlyRecord(record) {
+  return !isPrizeRecord(record);
 }
 
 function pickRandom(items) {
