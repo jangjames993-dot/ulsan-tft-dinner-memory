@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>회식 기록 | 울산미래건설TFT 회식 추억 저장소</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand-link" href="./index.html">울산미래건설TFT 회식 추억 저장소</a>
+      <nav class="page-nav" aria-label="페이지 메뉴">
+        <a href="./notices.html">회식 공지</a>
+        <a href="./records.html" aria-current="page">회식 기록</a>
+        <a href="./fortune.html">운세 보기</a>
+        <a href="./prizes.html">경품 추천</a>
+      </nav>
+      <button class="admin-button" id="adminToggle" type="button">관리자 모드</button>
+      <button class="icon-button" id="resetButton" title="전체 기록 초기화" aria-label="전체 기록 초기화" data-admin-only>↺</button>
+    </header>
+
+    <main class="page-shell">
+      <section class="page-title">
+        <p class="eyebrow">울산미래건설TFT</p>
+        <h1>회식 기록</h1>
+        <p>사진과 설명으로 회식별 게시글을 남겨 추억처럼 다시 볼 수 있습니다.</p>
+      </section>
+
+      <section class="workspace" aria-label="게시글 작성과 목록">
+        <form class="composer" id="postForm" data-admin-only>
+          <div class="form-header">
+            <div>
+              <p class="eyebrow">새 게시글</p>
+              <h2>회식 기록 추가</h2>
+            </div>
+            <span class="count-pill"><strong id="postCount">0</strong> posts</span>
+          </div>
+
+          <label>
+            회식 제목
+            <input id="titleInput" type="text" placeholder="예: 프로젝트 마무리 회식" required />
+          </label>
+
+          <label>
+            설명
+            <textarea id="descriptionInput" rows="5" placeholder="장소, 분위기, 메뉴, 기억할 만한 순간을 적어주세요." required></textarea>
+          </label>
+
+          <label>
+            사진
+            <input id="photoInput" type="file" accept="image/*" />
+          </label>
+
+          <div class="preview" id="preview" aria-live="polite">
+            <span>사진을 선택하면 미리보기가 표시됩니다.</span>
+          </div>
+
+          <button class="primary-button" type="submit">게시글 등록</button>
+        </form>
+
+        <section class="feed" aria-label="회식 게시글">
+          <div class="feed-header">
+            <div>
+              <p class="eyebrow">게시글</p>
+              <h2>회식별 기록</h2>
+            </div>
+            <p>사진, 제목, 설명을 카드로 모아볼 수 있습니다.</p>
+          </div>
+          <div class="posts" id="posts"></div>
+        </section>
+      </section>
+    </main>
+
+    <template id="postTemplate">
+      <article class="post-card">
+        <img class="post-image" alt="" />
+        <div class="post-body">
+          <div class="post-meta">
+            <span>회식</span>
+            <time></time>
+          </div>
+          <h3></h3>
+          <p></p>
+          <div class="card-actions" data-admin-only>
+            <button type="button" class="secondary-button edit-post-button">수정</button>
+            <button type="button" class="danger-button delete-post-button">제거</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

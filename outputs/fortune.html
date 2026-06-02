@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>운세 보기 | 울산미래건설TFT 회식 추억 저장소</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand-link" href="./index.html">울산미래건설TFT 회식 추억 저장소</a>
+      <nav class="page-nav" aria-label="페이지 메뉴">
+        <a href="./notices.html">회식 공지</a>
+        <a href="./records.html">회식 기록</a>
+        <a href="./fortune.html" aria-current="page">운세 보기</a>
+        <a href="./prizes.html">경품 추천</a>
+      </nav>
+      <button class="admin-button" id="adminToggle" type="button">관리자 모드</button>
+      <button class="icon-button" id="resetButton" title="전체 기록 초기화" aria-label="전체 기록 초기화" data-admin-only>↺</button>
+    </header>
+
+    <main class="page-shell">
+      <section class="page-title">
+        <p class="eyebrow">울산미래건설TFT</p>
+        <h1>운세 보기</h1>
+        <p>이름과 주민등록번호 앞 6자리를 입력하면 긍정 운세와 경품 추천이 함께 나옵니다.</p>
+      </section>
+
+      <section class="fortune-panel" aria-label="운세와 경품 추천">
+        <form class="fortune-form" id="fortuneForm">
+          <div class="form-header">
+            <div>
+              <p class="eyebrow">오늘의 회식 운세</p>
+              <h2>이름과 앞 6자리로 뽑기</h2>
+            </div>
+            <span class="count-pill"><strong id="fortuneCount">0</strong> memories</span>
+          </div>
+
+          <div class="fortune-fields">
+            <label>
+              이름
+              <input id="nameInput" type="text" placeholder="예: 김회식" required />
+            </label>
+
+            <label>
+              주민등록번호 앞 6자리
+              <input id="birthInput" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="예: 900101" required />
+            </label>
+          </div>
+
+          <button class="primary-button" type="submit">운세와 경품 추천</button>
+          <p class="privacy-note">입력값은 운세 생성에만 쓰고, 기록에는 앞 4자리만 보이게 저장됩니다.</p>
+        </form>
+
+        <article class="fortune-result" id="fortuneResult" aria-live="polite">
+          <p class="eyebrow">결과</p>
+          <h3>아직 뽑은 운세가 없습니다.</h3>
+          <p>재물, 회사생활, 건강, 가족, 업무능력 중 하나의 긍정 운세와 경품 추천이 나옵니다.</p>
+        </article>
+      </section>
+
+      <section class="memory-section" aria-label="운세 기록">
+        <div class="feed-header">
+          <div>
+            <p class="eyebrow">운세 기록</p>
+            <h2>오늘 뽑은 운세 히스토리</h2>
+          </div>
+          <p>부서원별 운세 결과가 시간순으로 저장됩니다.</p>
+        </div>
+        <div class="fortune-history" id="fortuneHistory"></div>
+      </section>
+    </main>
+
+    <template id="fortuneTemplate">
+      <article class="fortune-card">
+        <div class="fortune-card-top">
+          <span class="fortune-category"></span>
+          <time></time>
+        </div>
+        <h3></h3>
+        <p class="fortune-message"></p>
+        <p class="birth-mask"></p>
+        <div class="card-actions" data-admin-only>
+          <button type="button" class="danger-button delete-fortune-button">제거</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

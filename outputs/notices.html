@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>회식 공지 | 울산미래건설TFT 회식 추억 저장소</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand-link" href="./index.html">울산미래건설TFT 회식 추억 저장소</a>
+      <nav class="page-nav" aria-label="페이지 메뉴">
+        <a href="./notices.html" aria-current="page">회식 공지</a>
+        <a href="./records.html">회식 기록</a>
+        <a href="./fortune.html">운세 보기</a>
+        <a href="./prizes.html">경품 추천</a>
+      </nav>
+      <button class="admin-button" id="adminToggle" type="button">관리자 모드</button>
+      <button class="icon-button" id="resetButton" title="전체 기록 초기화" aria-label="전체 기록 초기화" data-admin-only>↺</button>
+    </header>
+
+    <main class="page-shell">
+      <section class="page-title">
+        <p class="eyebrow">울산미래건설TFT</p>
+        <h1>회식 공지</h1>
+        <p>회식 일정, 장소, 준비물처럼 함께 알아야 할 내용을 확인할 수 있습니다.</p>
+      </section>
+
+      <section class="workspace" aria-label="공지 작성과 목록">
+        <form class="composer" id="noticeForm" data-admin-only>
+          <div class="form-header">
+            <div>
+              <p class="eyebrow">새 공지</p>
+              <h2>공지 작성</h2>
+            </div>
+            <span class="count-pill"><strong id="noticeCount">0</strong> notices</span>
+          </div>
+
+          <label>
+            제목
+            <input id="noticeTitleInput" type="text" placeholder="예: 회식 장소 및 집합 시간 안내" required />
+          </label>
+
+          <label>
+            내용
+            <textarea id="noticeContentInput" rows="8" placeholder="공지 내용을 입력해주세요." required></textarea>
+          </label>
+
+          <button class="primary-button" type="submit">공지 등록</button>
+        </form>
+
+        <section class="feed" aria-label="회식 공지 목록">
+          <div class="feed-header">
+            <div>
+              <p class="eyebrow">공지 목록</p>
+              <h2>등록된 회식 공지</h2>
+            </div>
+            <p>등록된 회식 공지를 이 페이지에서 다시 확인할 수 있습니다.</p>
+          </div>
+          <div class="notice-list" id="noticeList"></div>
+        </section>
+      </section>
+    </main>
+
+    <template id="noticeTemplate">
+      <article class="notice-card">
+        <div class="post-meta">
+          <span>공지</span>
+          <time></time>
+        </div>
+        <h3></h3>
+        <p></p>
+        <div class="card-actions" data-admin-only>
+          <button type="button" class="secondary-button edit-notice-button">수정</button>
+          <button type="button" class="danger-button delete-notice-button">제거</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
