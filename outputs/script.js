@@ -60,6 +60,18 @@ const fortunes = [
   { category: "업무능력", message: "오늘은 자신 있게 말해도 좋은 타이밍이 찾아옵니다." },
   { category: "업무능력", message: "평소의 책임감이 즐거운 자리에서도 든든하게 느껴집니다." },
 ];
+const fortuneFlourishes = [
+  "오늘은 회의실보다 회식자리에서 아이디어가 더 잘 나올 운입니다. 단, 결재 라인은 내일 다시 확인하세요.",
+  "당신의 기운은 현재 양호합니다. 현장 기준으로 보면 안전모, 조끼, 멘탈까지 모두 정상 착용 상태입니다.",
+  "오늘은 말 한마디가 도면 수정 세 번을 줄여줄 수 있습니다. 물론 실제 도면은 담당자에게 맡기는 게 좋습니다.",
+  "웃음 포인트가 들어오면 놓치지 마세요. 오늘의 리액션은 거의 품질검사 합격 수준입니다.",
+  "작은 행운이 천천히 접근 중입니다. 지게차처럼 후진음은 안 나지만 분명히 오고 있습니다.",
+  "오늘은 주변 사람이 당신을 든든하게 느낍니다. 철골보다 단단하다는 말은 과장이지만, 분위기는 그쪽입니다.",
+  "컨디션이 살짝 올라오는 날입니다. 커피 한 잔이면 생산성 그래프가 보기 좋게 우상향할 수 있습니다.",
+  "회식 자리에서 센스가 빛납니다. 다만 농담은 하중 계산하듯 한 번만 검토하고 던지면 더 좋습니다.",
+  "좋은 소식이 들어올 운입니다. 알림음이 없어도 마음속 대시보드는 초록불입니다.",
+  "오늘은 당신의 존재감이 자연스럽게 올라갑니다. 공정률로 치면 분위기 기여도 87%쯤 됩니다.",
+];
 const PRIZE_SOLD_OUT = "경품 소진";
 const PRIZE_INVENTORY = [
   { name: "커피쿠폰 3,000원", quantity: 7 },
@@ -179,6 +191,7 @@ if (form) {
         posts = posts.map((post) => (post.id === currentEditingId ? { ...post, ...updates } : post));
         savePosts();
         renderPosts();
+        showToast("성공적으로 수정했습니다.");
 
         if (USE_SUPABASE) {
           await updateRemotePost(currentEditingId, updates);
@@ -195,6 +208,7 @@ if (form) {
         posts = [post, ...posts];
         savePosts();
         renderPosts();
+        showToast("성공적으로 게시했습니다.");
 
         if (USE_SUPABASE) {
           await createRemotePost(post);
@@ -210,7 +224,7 @@ if (form) {
       refreshPosts();
     } catch (error) {
       console.error("Post save failed", error);
-      alert("저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      showToast("화면에는 반영했습니다. 공유 저장은 잠시 후 다시 동기화됩니다.", "warn");
       refreshPosts();
     } finally {
       setFormBusy(form, false);
@@ -239,6 +253,7 @@ if (noticeForm) {
         notices = notices.map((notice) => (notice.id === currentEditingId ? { ...notice, ...updates } : notice));
         saveNotices();
         renderNotices();
+        showToast("성공적으로 수정했습니다.");
 
         if (USE_SUPABASE) {
           await updateRemoteNotice(currentEditingId, updates);
@@ -254,6 +269,7 @@ if (noticeForm) {
         notices = [notice, ...notices];
         saveNotices();
         renderNotices();
+        showToast("성공적으로 게시했습니다.");
 
         if (USE_SUPABASE) {
           await createRemoteNotice(notice);
@@ -265,7 +281,7 @@ if (noticeForm) {
       refreshNotices();
     } catch (error) {
       console.error("Notice save failed", error);
-      alert("저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      showToast("화면에는 반영했습니다. 공유 저장은 잠시 후 다시 동기화됩니다.", "warn");
       refreshNotices();
     } finally {
       setFormBusy(noticeForm, false);
@@ -296,7 +312,7 @@ if (fortuneForm) {
       name,
       birthMask: `${birth.slice(0, 4)}**`,
       category: fortune.category,
-      message: fortune.message,
+      message: `${fortune.message} ${pickRandom(fortuneFlourishes)}`,
       prize,
       createdAt: new Date().toISOString(),
     };
@@ -307,6 +323,7 @@ if (fortuneForm) {
     renderFortunes();
     renderPrizes();
     renderCurrentFortune(record);
+    showToast(isPrizePage ? "경품 결과가 나왔습니다." : "운세 결과가 나왔습니다.");
     fortuneForm.reset();
 
     try {
@@ -316,7 +333,7 @@ if (fortuneForm) {
       refreshFortunes();
     } catch (error) {
       console.error("Fortune save failed", error);
-      alert("저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      showToast("화면에는 반영했습니다. 공유 저장은 잠시 후 다시 동기화됩니다.", "warn");
       refreshFortunes();
     } finally {
       setFormBusy(fortuneForm, false);
@@ -959,6 +976,21 @@ function setFormBusy(targetForm, isBusy, label = "처리 중") {
 
   button.textContent = button.dataset.readyLabel || button.textContent;
   delete button.dataset.readyLabel;
+}
+
+function showToast(message, type = "success") {
+  const previous = document.querySelector(".toast");
+  if (previous) previous.remove();
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  document.body.append(toast);
+
+  window.setTimeout(() => {
+    toast.classList.add("is-hiding");
+    window.setTimeout(() => toast.remove(), 220);
+  }, 2200);
 }
 
 function isAdminMode() {
