@@ -173,9 +173,8 @@ if (form) {
 
       if (USE_SUPABASE) {
         await updateRemotePost(editingPostId, updates);
-      } else {
-        posts = posts.map((post) => (post.id === editingPostId ? { ...post, ...updates } : post));
       }
+      posts = posts.map((post) => (post.id === editingPostId ? { ...post, ...updates } : post));
     } else {
       const post = {
         id: crypto.randomUUID(),
@@ -187,12 +186,13 @@ if (form) {
 
       if (USE_SUPABASE) {
         await createRemotePost(post);
-      } else {
-        posts = [post, ...posts];
       }
+      posts = [post, ...posts];
     }
 
-    await refreshPosts();
+    savePosts();
+    renderPosts();
+    refreshPosts();
 
     form.reset();
     editingPostId = "";
@@ -218,9 +218,8 @@ if (noticeForm) {
 
       if (USE_SUPABASE) {
         await updateRemoteNotice(editingNoticeId, updates);
-      } else {
-        notices = notices.map((notice) => (notice.id === editingNoticeId ? { ...notice, ...updates } : notice));
       }
+      notices = notices.map((notice) => (notice.id === editingNoticeId ? { ...notice, ...updates } : notice));
     } else {
       const notice = {
         id: crypto.randomUUID(),
@@ -231,12 +230,13 @@ if (noticeForm) {
 
       if (USE_SUPABASE) {
         await createRemoteNotice(notice);
-      } else {
-        notices = [notice, ...notices];
       }
+      notices = [notice, ...notices];
     }
 
-    await refreshNotices();
+    saveNotices();
+    renderNotices();
+    refreshNotices();
     noticeForm.reset();
     editingNoticeId = "";
     setSubmitLabel(noticeForm, "공지 등록");
@@ -271,10 +271,12 @@ if (fortuneForm) {
 
     if (USE_SUPABASE) {
       await createRemoteFortune(record);
-    } else {
-      fortuneRecords = [record, ...fortuneRecords];
     }
-    await refreshFortunes();
+    fortuneRecords = [record, ...fortuneRecords];
+    saveFortunes();
+    renderFortunes();
+    renderPrizes();
+    refreshFortunes();
     renderCurrentFortune(record);
     fortuneForm.reset();
   });
@@ -391,9 +393,8 @@ async function deletePost(id) {
 
   if (USE_SUPABASE) {
     await deleteRemotePost(id);
-  } else {
-    posts = posts.filter((item) => item.id !== id);
   }
+  posts = posts.filter((item) => item.id !== id);
   if (editingPostId === id) {
     editingPostId = "";
     selectedPhoto = "";
@@ -403,7 +404,9 @@ async function deletePost(id) {
       preview.innerHTML = "<span>사진을 선택하면 미리보기가 표시됩니다.</span>";
     }
   }
-  await refreshPosts();
+  savePosts();
+  renderPosts();
+  refreshPosts();
 }
 
 function loadPosts() {
@@ -698,15 +701,16 @@ async function deleteNotice(id) {
 
   if (USE_SUPABASE) {
     await deleteRemoteNotice(id);
-  } else {
-    notices = notices.filter((item) => item.id !== id);
   }
+  notices = notices.filter((item) => item.id !== id);
   if (editingNoticeId === id) {
     editingNoticeId = "";
     noticeForm?.reset();
     setSubmitLabel(noticeForm, "공지 등록");
   }
-  await refreshNotices();
+  saveNotices();
+  renderNotices();
+  refreshNotices();
 }
 
 function loadFortunes() {
@@ -837,10 +841,12 @@ async function deleteFortuneRecord(id) {
 
   if (USE_SUPABASE) {
     await deleteRemoteFortune(id);
-  } else {
-    fortuneRecords = fortuneRecords.filter((item) => item.id !== id);
   }
-  await refreshFortunes();
+  fortuneRecords = fortuneRecords.filter((item) => item.id !== id);
+  saveFortunes();
+  renderFortunes();
+  renderPrizes();
+  refreshFortunes();
   if (fortuneResult) {
     fortuneResult.innerHTML = prizeHistory
       ? `
@@ -858,14 +864,13 @@ async function deleteFortuneRecord(id) {
 
 function getNextPrize() {
   const usedCounts = countUsedPrizes();
-  const remaining = PRIZE_INVENTORY.flatMap((item) => {
+  const availableTypes = PRIZE_INVENTORY.filter((item) => {
     const used = usedCounts[item.name] || 0;
-    const count = Math.max(item.quantity - used, 0);
-    return Array.from({ length: count }, () => item.name);
+    return used < item.quantity;
   });
 
-  if (!remaining.length) return PRIZE_SOLD_OUT;
-  return pickRandom(remaining);
+  if (!availableTypes.length) return PRIZE_SOLD_OUT;
+  return pickRandom(availableTypes).name;
 }
 
 function countUsedPrizes() {
