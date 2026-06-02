@@ -161,45 +161,60 @@ if (form) {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!isAdminMode()) return;
+    if (isFormBusy(form)) return;
 
-    if (editingPostId) {
-      const currentPost = posts.find((post) => post.id === editingPostId);
-      const updates = {
-        title: titleInput.value.trim(),
-        description: descriptionInput.value.trim(),
-        image: selectedPhoto || currentPost?.image || fallbackImage,
-        updatedAt: new Date().toISOString(),
-      };
+    const currentEditingId = editingPostId;
+    setFormBusy(form, true, "저장 중");
 
-      if (USE_SUPABASE) {
-        await updateRemotePost(editingPostId, updates);
+    try {
+      if (currentEditingId) {
+        const currentPost = posts.find((post) => post.id === currentEditingId);
+        const updates = {
+          title: titleInput.value.trim(),
+          description: descriptionInput.value.trim(),
+          image: selectedPhoto || currentPost?.image || fallbackImage,
+          updatedAt: new Date().toISOString(),
+        };
+
+        posts = posts.map((post) => (post.id === currentEditingId ? { ...post, ...updates } : post));
+        savePosts();
+        renderPosts();
+
+        if (USE_SUPABASE) {
+          await updateRemotePost(currentEditingId, updates);
+        }
+      } else {
+        const post = {
+          id: crypto.randomUUID(),
+          title: titleInput.value.trim(),
+          description: descriptionInput.value.trim(),
+          image: selectedPhoto || fallbackImage,
+          createdAt: new Date().toISOString(),
+        };
+
+        posts = [post, ...posts];
+        savePosts();
+        renderPosts();
+
+        if (USE_SUPABASE) {
+          await createRemotePost(post);
+        }
       }
-      posts = posts.map((post) => (post.id === editingPostId ? { ...post, ...updates } : post));
-    } else {
-      const post = {
-        id: crypto.randomUUID(),
-        title: titleInput.value.trim(),
-        description: descriptionInput.value.trim(),
-        image: selectedPhoto || fallbackImage,
-        createdAt: new Date().toISOString(),
-      };
 
-      if (USE_SUPABASE) {
-        await createRemotePost(post);
+      form.reset();
+      editingPostId = "";
+      selectedPhoto = "";
+      if (preview) {
+        preview.innerHTML = "<span>사진을 선택하면 미리보기가 표시됩니다.</span>";
       }
-      posts = [post, ...posts];
-    }
-
-    savePosts();
-    renderPosts();
-    refreshPosts();
-
-    form.reset();
-    editingPostId = "";
-    selectedPhoto = "";
-    setSubmitLabel(form, "게시글 등록");
-    if (preview) {
-      preview.innerHTML = "<span>사진을 선택하면 미리보기가 표시됩니다.</span>";
+      refreshPosts();
+    } catch (error) {
+      console.error("Post save failed", error);
+      alert("저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      refreshPosts();
+    } finally {
+      setFormBusy(form, false);
+      if (!editingPostId) setSubmitLabel(form, "게시글 등록");
     }
   });
 }
@@ -208,44 +223,61 @@ if (noticeForm) {
   noticeForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!isAdminMode()) return;
+    if (isFormBusy(noticeForm)) return;
 
-    if (editingNoticeId) {
-      const updates = {
-        title: noticeTitleInput.value.trim(),
-        content: noticeContentInput.value.trim(),
-        updatedAt: new Date().toISOString(),
-      };
+    const currentEditingId = editingNoticeId;
+    setFormBusy(noticeForm, true, "저장 중");
 
-      if (USE_SUPABASE) {
-        await updateRemoteNotice(editingNoticeId, updates);
+    try {
+      if (currentEditingId) {
+        const updates = {
+          title: noticeTitleInput.value.trim(),
+          content: noticeContentInput.value.trim(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        notices = notices.map((notice) => (notice.id === currentEditingId ? { ...notice, ...updates } : notice));
+        saveNotices();
+        renderNotices();
+
+        if (USE_SUPABASE) {
+          await updateRemoteNotice(currentEditingId, updates);
+        }
+      } else {
+        const notice = {
+          id: crypto.randomUUID(),
+          title: noticeTitleInput.value.trim(),
+          content: noticeContentInput.value.trim(),
+          createdAt: new Date().toISOString(),
+        };
+
+        notices = [notice, ...notices];
+        saveNotices();
+        renderNotices();
+
+        if (USE_SUPABASE) {
+          await createRemoteNotice(notice);
+        }
       }
-      notices = notices.map((notice) => (notice.id === editingNoticeId ? { ...notice, ...updates } : notice));
-    } else {
-      const notice = {
-        id: crypto.randomUUID(),
-        title: noticeTitleInput.value.trim(),
-        content: noticeContentInput.value.trim(),
-        createdAt: new Date().toISOString(),
-      };
 
-      if (USE_SUPABASE) {
-        await createRemoteNotice(notice);
-      }
-      notices = [notice, ...notices];
+      noticeForm.reset();
+      editingNoticeId = "";
+      refreshNotices();
+    } catch (error) {
+      console.error("Notice save failed", error);
+      alert("저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      refreshNotices();
+    } finally {
+      setFormBusy(noticeForm, false);
+      if (!editingNoticeId) setSubmitLabel(noticeForm, "공지 등록");
     }
-
-    saveNotices();
-    renderNotices();
-    refreshNotices();
-    noticeForm.reset();
-    editingNoticeId = "";
-    setSubmitLabel(noticeForm, "공지 등록");
   });
 }
 
 if (fortuneForm) {
   fortuneForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (isFormBusy(fortuneForm)) return;
 
     const name = nameInput.value.trim();
     const birth = birthInput.value.trim();
@@ -269,16 +301,26 @@ if (fortuneForm) {
       createdAt: new Date().toISOString(),
     };
 
-    if (USE_SUPABASE) {
-      await createRemoteFortune(record);
-    }
+    setFormBusy(fortuneForm, true, isPrizePage ? "추천 중" : "운세 확인 중");
     fortuneRecords = [record, ...fortuneRecords];
     saveFortunes();
     renderFortunes();
     renderPrizes();
-    refreshFortunes();
     renderCurrentFortune(record);
     fortuneForm.reset();
+
+    try {
+      if (USE_SUPABASE) {
+        await createRemoteFortune(record);
+      }
+      refreshFortunes();
+    } catch (error) {
+      console.error("Fortune save failed", error);
+      alert("저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      refreshFortunes();
+    } finally {
+      setFormBusy(fortuneForm, false);
+    }
   });
 }
 
@@ -897,6 +939,26 @@ function pickRandom(items) {
 function setSubmitLabel(targetForm, label) {
   const button = targetForm?.querySelector('button[type="submit"]');
   if (button) button.textContent = label;
+}
+
+function isFormBusy(targetForm) {
+  return targetForm?.dataset.busy === "true";
+}
+
+function setFormBusy(targetForm, isBusy, label = "처리 중") {
+  const button = targetForm?.querySelector('button[type="submit"]');
+  if (!targetForm || !button) return;
+
+  targetForm.dataset.busy = String(isBusy);
+  button.disabled = isBusy;
+  if (isBusy) {
+    button.dataset.readyLabel = button.textContent;
+    button.textContent = label;
+    return;
+  }
+
+  button.textContent = button.dataset.readyLabel || button.textContent;
+  delete button.dataset.readyLabel;
 }
 
 function isAdminMode() {

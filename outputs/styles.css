@@ -544,6 +544,13 @@ textarea:focus {
   background: var(--accent-strong);
 }
 
+.primary-button:disabled,
+.secondary-button:disabled,
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .card-actions {
   display: flex;
   flex-wrap: wrap;
